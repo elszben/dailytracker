@@ -4,7 +4,7 @@
    Daily Tracker — pure HTML/CSS/JS, data in localStorage.
    ========================================================================== */
 
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.4.0';
 const STORAGE_KEY = 'dailytracker.v1';
 const UI_KEY = 'dailytracker.ui';
 const LOCALE = 'en-GB';
@@ -526,6 +526,7 @@ const state = {
   lastToday: todayKey(),
   expanded: new Set(),
   calMonth: null, // 'YYYY-MM'
+  celebrated: new Set(), // days that already got fireworks this session
 };
 
 /* --------------------------------------------------------------------------
@@ -579,6 +580,90 @@ function render() {
     if (t.dataset.view === state.view) t.setAttribute('aria-current', 'page');
     else t.removeAttribute('aria-current');
   }
+}
+
+/* ---- Fireworks ---- */
+
+function fireworks(title, subtitle) {
+  $('.fireworks')?.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'fireworks';
+  wrap.setAttribute('role', 'status');
+  wrap.innerHTML = `<canvas></canvas><div class="fw-msg"><b>${esc(title)}</b><span>${esc(subtitle)}</span></div>`;
+  document.body.append(wrap);
+  haptic();
+  setTimeout(haptic, 180);
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DURATION = 4200;
+  const done = () => { wrap.classList.add('out'); setTimeout(() => wrap.remove(), 500); };
+  if (reduced) { setTimeout(done, 3000); return; }
+
+  const canvas = $('canvas', wrap);
+  const ctx = canvas.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const W = window.innerWidth, H = window.innerHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  const palette = ['#ff4d6d', '#ffb703', '#30d158', '#4cc9f0', '#b388ff', '#ff8fab', '#ffd60a', '#ffffff'];
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const rockets = [], sparks = [];
+  const launches = Array.from({ length: 9 }, (_, i) => i * 300 + rand(0, 200));
+  const start = performance.now();
+  let last = start;
+
+  function launch() {
+    const x = rand(W * 0.15, W * 0.85);
+    rockets.push({ x, y: H + 10, vx: rand(-0.6, 0.6), vy: -rand(9, 12.5) * (H / 850), targetY: rand(H * 0.12, H * 0.42), color: palette[(Math.random() * palette.length) | 0] });
+  }
+
+  function explode(r) {
+    const n = 70;
+    const speed = rand(3.2, 5.2);
+    const second = palette[(Math.random() * palette.length) | 0];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rand(-0.05, 0.05);
+      const v = speed * rand(0.55, 1);
+      sparks.push({ x: r.x, y: r.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, decay: rand(0.011, 0.018), color: i % 3 ? r.color : second, size: rand(1.6, 2.6) });
+    }
+  }
+
+  function frame(now) {
+    const dt = Math.min((now - last) / 16.67, 3);
+    last = now;
+    const t = now - start;
+    while (launches.length && t >= launches[0]) { launches.shift(); launch(); }
+
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+
+    for (let i = rockets.length - 1; i >= 0; i--) {
+      const r = rockets[i];
+      r.x += r.vx * dt; r.y += r.vy * dt; r.vy += 0.12 * dt;
+      ctx.fillStyle = r.color;
+      ctx.beginPath(); ctx.arc(r.x, r.y, 2.4, 0, Math.PI * 2); ctx.fill();
+      if (r.y <= r.targetY || r.vy >= 0) { explode(r); rockets.splice(i, 1); }
+    }
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const p = sparks[i];
+      p.vx *= Math.pow(0.975, dt); p.vy = p.vy * Math.pow(0.975, dt) + 0.07 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.life -= p.decay * dt;
+      if (p.life <= 0) { sparks.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.min(1, p.life * 1.4);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    if (t < DURATION || rockets.length || sparks.length) requestAnimationFrame(frame);
+    else done();
+  }
+  requestAnimationFrame(frame);
 }
 
 /* ---- Today ---- */
@@ -1030,9 +1115,14 @@ document.addEventListener('click', (e) => {
         void el.offsetWidth;
         el.classList.add('pop');
       }
-      if (before < TOTAL && dayDone(state.date) === TOTAL) {
+      const after = dayDone(state.date);
+      if (before < TOTAL && after === TOTAL) {
         toast(`All ${TOTAL} servings — well done! 🎉`);
         $('#summary').classList.add('celebrate');
+      }
+      if (before < TOTAL / 2 && after >= TOTAL / 2 && !state.celebrated.has(state.date)) {
+        state.celebrated.add(state.date);
+        fireworks('You are awesome,', 'keep up the good work!');
       }
       break;
     }

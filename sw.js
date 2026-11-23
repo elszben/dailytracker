@@ -4,7 +4,7 @@
 // immediately; falls back to the cached copy when offline.
 // Change CACHE on every release: a changed sw.js is what makes the installed
 // Home Screen app notice the update and reload itself.
-const CACHE = 'dailytracker-v5';
+const CACHE = 'dailytracker-v6';
 const ASSETS = [
   './',
   './index.html',
