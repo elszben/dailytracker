@@ -243,6 +243,7 @@ h1, h2 { margin: 0; }
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 12px 14px 14px;
+  min-width: 0;
   transition: background-color 0.3s;
 }
 .item.done { background: color-mix(in srgb, var(--c) 9%, var(--card)); }
@@ -332,6 +333,125 @@ h1, h2 { margin: 0; }
 .servings li:last-child { border-bottom: 0; }
 .servings b { white-space: nowrap; font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--c) 65%, var(--text)); }
 .examples { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+
+.tagged {
+  margin-top: 8px;
+  padding-left: 48px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.info-title span { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.info-title ~ .info-title { margin-top: 16px; }
+
+/* Food picker */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 13px;
+  border-radius: 999px;
+  background: var(--card-2);
+  font-size: 15px;
+  line-height: 1.1;
+  transition: transform 0.12s, background-color 0.15s;
+}
+.chip:active, .chip-main:active, .chip-cook:active { transform: scale(0.94); }
+.chip.on {
+  padding: 0;
+  background: var(--c);
+  color: #fff;
+  font-weight: 600;
+}
+.chip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 0 13px 0 10px;
+}
+.chip.has-cook .chip-main { padding-right: 6px; }
+.chip-main svg { width: 16px; height: 16px; stroke-width: 3; }
+.chip-cook {
+  min-height: 30px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+  font-weight: 700;
+}
+.dot, .cdot {
+  display: inline-block;
+  flex: none;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--dot);
+}
+
+.add-food {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.add-food input, .add-food select {
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--sep);
+  border-radius: 12px;
+  background: var(--card-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* prevents iOS zoom */
+}
+.add-food input { flex: 1; width: 0; }
+.add-food select { flex: none; width: 96px; -webkit-appearance: none; appearance: none; }
+.add-food button {
+  flex: none;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: var(--c);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Variety card (Today) */
+.variety { margin-top: 10px; padding: 14px 16px; }
+.v-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.v-stat { min-width: 0; }
+.v-stat b {
+  display: block;
+  font: 700 26px/1.1 var(--font-round);
+  font-variant-numeric: tabular-nums;
+}
+.v-stat b small { font-size: 15px; color: var(--muted); font-weight: 600; }
+.v-stat span { display: block; font-size: 13px; color: var(--muted); }
+.cdots { display: flex; gap: 4px; height: 29px; align-items: center; }
+.cdot { width: 13px; height: 13px; background: var(--track); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--dot) 55%, transparent); }
+.cdot.on { background: var(--dot); box-shadow: none; }
+.mini-bar { display: block; height: 4px; margin-top: 5px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.mini-bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+
+.rc { margin-top: 12px; }
+.rc-labels { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--muted); }
+.rc-labels span:first-child { color: color-mix(in srgb, var(--accent) 75%, var(--text)); }
+.rc-labels span:last-child { color: color-mix(in srgb, #f76b15 75%, var(--text)); }
+.rc-bar { display: flex; height: 8px; margin-top: 4px; border-radius: 4px; overflow: hidden; background: #f76b15; }
+.rc-bar span { display: block; height: 100%; background: var(--accent); border-right: 2px solid var(--card); }
+.rc-empty { font-size: 13px; color: var(--muted); }
 
 .footnote { margin: 18px 6px 0; font-size: 13px; color: var(--muted); text-align: center; }
 
@@ -430,6 +550,34 @@ h1, h2 { margin: 0; }
 .bar-track { grid-area: track; height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
 .bar-fill { display: block; height: 100%; border-radius: 4px; background: var(--c); transition: width 0.5s; }
 
+.pd-count { display: flex; align-items: baseline; gap: 8px; }
+.pd-count b { font: 700 34px/1.1 var(--font-round); color: var(--accent); font-variant-numeric: tabular-nums; }
+.pd-count span { font-size: 15px; color: var(--muted); }
+.pd-bar { height: 8px; margin-top: 6px; border-radius: 4px; background: var(--track); overflow: hidden; }
+.pd-bar span { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+.pd-sub { margin-top: 14px; font-size: 15px; font-weight: 600; }
+.cpills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--card-2);
+  font-size: 13px;
+  color: var(--muted);
+}
+.cpill.on { color: var(--text); font-weight: 600; }
+.diversity .rc { margin-top: 14px; }
+.pd-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.pd-list span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: 13px;
+}
+.diversity .muted { margin: 14px 0 0; font-size: 14px; }
+
 /* --------------------------------------------------------------------------
    Settings
    -------------------------------------------------------------------------- */
@@ -452,6 +600,16 @@ h1, h2 { margin: 0; }
 .row-btn:active { opacity: 0.5; }
 .row-btn.danger { color: var(--danger); }
 .about p { margin: 0 0 8px; font-size: 15px; }
+.my-foods { list-style: none; margin: 0; padding: 0; }
+.my-foods li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  border-top: 1px solid var(--sep);
+}
+.my-foods li span { flex: 1; min-width: 0; }
+.my-foods small { display: block; font-size: 13px; color: var(--muted); }
 
 /* --------------------------------------------------------------------------
    Tab bar

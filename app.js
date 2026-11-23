@@ -4,7 +4,7 @@
    Daily Tracker — pure HTML/CSS/JS, data in localStorage.
    ========================================================================== */
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const STORAGE_KEY = 'dailytracker.v1';
 const UI_KEY = 'dailytracker.ui';
 const LOCALE = 'en-GB';
@@ -132,6 +132,126 @@ const TRACKER = DAILY_DOZEN;
 const TOTAL = TRACKER.items.reduce((s, it) => s + it.target, 0);
 
 /* --------------------------------------------------------------------------
+   Plant foods for the tap-to-tag picker.
+   f(id, name, colour, cook, plant): colour is one of COLOURS (fruit & veg only),
+   cook is the default state when ticked ('raw' | 'cooked'), plant groups foods
+   that are the same plant for the diversity count (e.g. tofu + tempeh = soy).
+   -------------------------------------------------------------------------- */
+
+const WEEK_GOAL = 30;
+
+const COLOURS = {
+  red: { label: 'Red', hex: '#e5484d' },
+  orange: { label: 'Orange', hex: '#f76b15' },
+  yellow: { label: 'Yellow', hex: '#f5c518' },
+  green: { label: 'Green', hex: '#30a46c' },
+  purple: { label: 'Blue & purple', hex: '#8e4ec6' },
+  white: { label: 'White & brown', hex: '#c4ae8c' },
+};
+
+// Categories where raw/cooked matters, with the default for custom foods.
+const COOK_CATS = { berries: 'raw', fruits: 'raw', cruciferous: 'cooked', greens: 'raw', vegetables: 'cooked' };
+const PLANT_NAMES = { soy: 'Soy', corn: 'Corn', wheat: 'Wheat' };
+
+const f = (id, name, colour = null, cook = null, plant = null) => ({ id, name, colour, cook, plant });
+
+const FOODS = {
+  beans: [
+    f('black-beans', 'Black beans'), f('chickpeas', 'Chickpeas'), f('kidney-beans', 'Kidney beans'),
+    f('lentils', 'Lentils'), f('red-lentils', 'Red lentils'), f('white-beans', 'White beans'),
+    f('pinto-beans', 'Pinto beans'), f('black-eyed-peas', 'Black-eyed peas'), f('butter-beans', 'Butter beans'),
+    f('split-peas', 'Split peas'), f('green-peas', 'Green peas'), f('edamame', 'Edamame', null, null, 'soy'),
+    f('tofu', 'Tofu', null, null, 'soy'), f('tempeh', 'Tempeh', null, null, 'soy'), f('miso', 'Miso', null, null, 'soy'),
+  ],
+  berries: [
+    f('strawberries', 'Strawberries', 'red', 'raw'), f('raspberries', 'Raspberries', 'red', 'raw'),
+    f('blueberries', 'Blueberries', 'purple', 'raw'), f('blackberries', 'Blackberries', 'purple', 'raw'),
+    f('cherries', 'Cherries', 'red', 'raw'), f('sour-cherries', 'Sour cherries', 'red', 'raw'),
+    f('cranberries', 'Cranberries', 'red', 'raw'), f('goji', 'Goji berries', 'red', 'raw'),
+    f('grapes', 'Grapes', 'purple', 'raw'), f('redcurrants', 'Redcurrants', 'red', 'raw'),
+    f('blackcurrants', 'Blackcurrants', 'purple', 'raw'), f('aronia', 'Aronia', 'purple', 'raw'),
+    f('mulberries', 'Mulberries', 'purple', 'raw'), f('gooseberries', 'Gooseberries', 'green', 'raw'),
+    f('elderberries', 'Elderberries', 'purple', 'cooked'),
+  ],
+  fruits: [
+    f('apple', 'Apple', 'red', 'raw'), f('pear', 'Pear', 'green', 'raw'), f('banana', 'Banana', 'yellow', 'raw'),
+    f('orange', 'Orange', 'orange', 'raw'), f('mandarin', 'Mandarin', 'orange', 'raw'), f('lemon', 'Lemon', 'yellow', 'raw'),
+    f('lime', 'Lime', 'green', 'raw'), f('grapefruit', 'Grapefruit', 'red', 'raw'), f('peach', 'Peach', 'orange', 'raw'),
+    f('nectarine', 'Nectarine', 'orange', 'raw'), f('apricot', 'Apricot', 'orange', 'raw'), f('plum', 'Plum', 'purple', 'raw'),
+    f('kiwi', 'Kiwi', 'green', 'raw'), f('mango', 'Mango', 'orange', 'raw'), f('pineapple', 'Pineapple', 'yellow', 'raw'),
+    f('watermelon', 'Watermelon', 'red', 'raw'), f('melon', 'Melon', 'orange', 'raw'), f('pomegranate', 'Pomegranate', 'red', 'raw'),
+    f('figs', 'Figs', 'purple', 'raw'), f('dates', 'Dates', 'white', 'raw'), f('prunes', 'Prunes', 'purple', 'raw'),
+    f('raisins', 'Raisins', 'purple', 'raw'), f('avocado', 'Avocado', 'green', 'raw'), f('papaya', 'Papaya', 'orange', 'raw'),
+    f('persimmon', 'Persimmon', 'orange', 'raw'), f('quince', 'Quince', 'yellow', 'cooked'),
+  ],
+  cruciferous: [
+    f('broccoli', 'Broccoli', 'green', 'cooked'), f('cauliflower', 'Cauliflower', 'white', 'cooked'),
+    f('cabbage', 'Cabbage', 'green', 'cooked'), f('red-cabbage', 'Red cabbage', 'purple', 'raw'),
+    f('brussels-sprouts', 'Brussels sprouts', 'green', 'cooked'), f('kale', 'Kale', 'green', 'cooked'),
+    f('kohlrabi', 'Kohlrabi', 'white', 'raw'), f('radish', 'Radish', 'red', 'raw'), f('arugula', 'Arugula', 'green', 'raw'),
+    f('bok-choy', 'Bok choy', 'green', 'cooked'), f('collards', 'Collard greens', 'green', 'cooked'),
+    f('watercress', 'Watercress', 'green', 'raw'), f('broccoli-sprouts', 'Broccoli sprouts', 'green', 'raw'),
+    f('horseradish', 'Horseradish', 'white', 'raw'), f('turnip', 'Turnip', 'white', 'cooked'),
+  ],
+  greens: [
+    f('spinach', 'Spinach', 'green', 'raw'), f('lettuce', 'Lettuce', 'green', 'raw'), f('romaine', 'Romaine', 'green', 'raw'),
+    f('salad-mix', 'Mixed salad greens', 'green', 'raw'), f('lambs-lettuce', 'Lamb’s lettuce', 'green', 'raw'),
+    f('chard', 'Swiss chard', 'green', 'cooked'), f('kale', 'Kale', 'green', 'cooked'), f('arugula', 'Arugula', 'green', 'raw'),
+    f('beet-greens', 'Beet greens', 'green', 'cooked'), f('dandelion', 'Dandelion greens', 'green', 'raw'),
+    f('sorrel', 'Sorrel', 'green', 'raw'), f('collards', 'Collard greens', 'green', 'cooked'),
+  ],
+  vegetables: [
+    f('carrot', 'Carrot', 'orange', 'raw'), f('tomato', 'Tomato', 'red', 'raw'), f('red-pepper', 'Red pepper', 'red', 'raw'),
+    f('yellow-pepper', 'Yellow pepper', 'yellow', 'raw'), f('green-pepper', 'Green pepper', 'green', 'raw'),
+    f('cucumber', 'Cucumber', 'green', 'raw'), f('beetroot', 'Beetroot', 'purple', 'cooked'),
+    f('zucchini', 'Zucchini', 'green', 'cooked'), f('eggplant', 'Eggplant', 'purple', 'cooked'),
+    f('onion', 'Onion', 'white', 'cooked'), f('red-onion', 'Red onion', 'purple', 'raw'),
+    f('spring-onion', 'Spring onion', 'green', 'raw'), f('garlic', 'Garlic', 'white', 'cooked'),
+    f('leek', 'Leek', 'green', 'cooked'), f('mushrooms', 'Mushrooms', 'white', 'cooked'),
+    f('sweet-potato', 'Sweet potato', 'orange', 'cooked'), f('potato', 'Potato', 'white', 'cooked'),
+    f('pumpkin', 'Pumpkin', 'orange', 'cooked'), f('asparagus', 'Asparagus', 'green', 'cooked'),
+    f('green-beans', 'Green beans', 'green', 'cooked'), f('celery', 'Celery', 'green', 'raw'),
+    f('celeriac', 'Celeriac', 'white', 'cooked'), f('parsnip', 'Parsnip', 'white', 'cooked'),
+    f('parsley-root', 'Parsley root', 'white', 'cooked'), f('sweetcorn', 'Sweetcorn', 'yellow', 'cooked', 'corn'),
+    f('artichoke', 'Artichoke', 'green', 'cooked'), f('fennel', 'Fennel', 'white', 'raw'),
+    f('radicchio', 'Radicchio', 'purple', 'raw'), f('okra', 'Okra', 'green', 'cooked'),
+  ],
+  flax: [f('flaxseed', 'Ground flaxseed')],
+  nuts: [
+    f('almonds', 'Almonds'), f('walnuts', 'Walnuts'), f('hazelnuts', 'Hazelnuts'), f('cashews', 'Cashews'),
+    f('pistachios', 'Pistachios'), f('pecans', 'Pecans'), f('brazil-nuts', 'Brazil nuts'), f('macadamias', 'Macadamias'),
+    f('pine-nuts', 'Pine nuts'), f('peanuts', 'Peanuts'), f('pumpkin-seeds', 'Pumpkin seeds'),
+    f('sunflower-seeds', 'Sunflower seeds'), f('sesame', 'Sesame / tahini'), f('chia', 'Chia seeds'),
+    f('hemp', 'Hemp seeds'), f('poppy-seeds', 'Poppy seeds'),
+  ],
+  spices: [
+    f('turmeric', 'Turmeric'), f('black-pepper', 'Black pepper'), f('cinnamon', 'Cinnamon'), f('ginger', 'Ginger'),
+    f('garlic', 'Garlic', 'white'), f('paprika', 'Paprika'), f('cumin', 'Cumin'), f('caraway', 'Caraway'),
+    f('oregano', 'Oregano'), f('marjoram', 'Marjoram'), f('basil', 'Basil'), f('parsley', 'Parsley'), f('dill', 'Dill'),
+    f('cilantro', 'Cilantro'), f('rosemary', 'Rosemary'), f('thyme', 'Thyme'), f('mint', 'Mint'), f('chili', 'Chili'),
+    f('cardamom', 'Cardamom'), f('cloves', 'Cloves'), f('nutmeg', 'Nutmeg'), f('vanilla', 'Vanilla'),
+  ],
+  grains: [
+    f('oats', 'Oats'), f('brown-rice', 'Brown rice'), f('wild-rice', 'Wild rice'), f('quinoa', 'Quinoa'),
+    f('buckwheat', 'Buckwheat'), f('millet', 'Millet'), f('barley', 'Barley'),
+    f('whole-wheat', 'Whole wheat', null, null, 'wheat'), f('bulgur', 'Bulgur', null, null, 'wheat'),
+    f('spelt', 'Spelt'), f('rye', 'Rye'), f('corn', 'Corn / polenta', null, null, 'corn'),
+    f('popcorn', 'Popcorn', null, null, 'corn'), f('amaranth', 'Amaranth'), f('teff', 'Teff'),
+  ],
+};
+
+const BUILTIN_FOODS = new Map();
+for (const list of Object.values(FOODS)) for (const fd of list) if (!BUILTIN_FOODS.has(fd.id)) BUILTIN_FOODS.set(fd.id, fd);
+
+function customFoods() { return Store.data.foods; }
+function foodsFor(cat) { return [...(FOODS[cat] || []), ...customFoods().filter((c) => c.cat === cat)]; }
+function foodInfo(id) { return BUILTIN_FOODS.get(id) || customFoods().find((c) => c.id === id) || null; }
+function plantKey(id) { return foodInfo(id)?.plant || id; }
+function plantName(key) { return PLANT_NAMES[key] || foodInfo(key)?.name || null; }
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* --------------------------------------------------------------------------
    Small helpers
    -------------------------------------------------------------------------- */
 
@@ -159,11 +279,15 @@ const ICONS = {
 
 /* --------------------------------------------------------------------------
    Storage (localStorage)
-   Shape: { version: 1, days: { 'YYYY-MM-DD': { dd: { beans: 2, ... } } } }
+   Shape: {
+     version: 1,
+     days: { 'YYYY-MM-DD': { dd: { beans: 2, ... }, plants: { broccoli: 'cooked', oats: 1 } } },
+     foods: [ { id, name, cat, colour } ]   // foods she added herself
+   }
    -------------------------------------------------------------------------- */
 
 const Store = {
-  data: { version: 1, days: {} },
+  data: { version: 1, days: {}, foods: [] },
 
   load() {
     try {
@@ -203,6 +327,35 @@ const Store = {
     this.save();
   },
 
+  getFood(date, id) { return this.data.days[date]?.plants?.[id] ?? null; },
+
+  /** value: 'raw' | 'cooked' | 1, or null to untick. */
+  setFood(date, id, value) {
+    const days = this.data.days;
+    if (value) {
+      days[date] ??= {};
+      days[date].plants ??= {};
+      days[date].plants[id] = value;
+    } else if (days[date]?.plants) {
+      delete days[date].plants[id];
+      if (!Object.keys(days[date].plants).length) delete days[date].plants;
+      if (!Object.keys(days[date]).length) delete days[date];
+    }
+    this.save();
+  },
+
+  addCustomFood(name, cat, colour) {
+    const food = { id: `u-${Date.now().toString(36)}`, name, cat, colour: COLOURS[colour] ? colour : null };
+    this.data.foods.push(food);
+    this.save();
+    return food;
+  },
+
+  removeCustomFood(id) {
+    this.data.foods = this.data.foods.filter((c) => c.id !== id);
+    this.save();
+  },
+
   replace(data) { this.data = data; this.save(); },
 };
 
@@ -214,6 +367,15 @@ function sanitize(obj) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !trackers || typeof trackers !== 'object') continue;
     for (const [tid, items] of Object.entries(trackers)) {
       if (!items || typeof items !== 'object') continue;
+      if (tid === 'plants') {
+        for (const [fid, val] of Object.entries(items)) {
+          if (fid.length > 60 || !(val === 'raw' || val === 'cooked' || val === 1)) continue;
+          days[date] ??= {};
+          days[date].plants ??= {};
+          days[date].plants[fid] = val;
+        }
+        continue;
+      }
       for (const [iid, val] of Object.entries(items)) {
         const n = Math.floor(Number(val));
         if (!Number.isFinite(n) || n <= 0) continue;
@@ -223,7 +385,10 @@ function sanitize(obj) {
       }
     }
   }
-  return { version: 1, days };
+  const foods = (Array.isArray(obj.foods) ? obj.foods : [])
+    .filter((c) => c && typeof c.id === 'string' && typeof c.name === 'string' && typeof c.cat === 'string')
+    .map((c) => ({ id: c.id.slice(0, 60), name: c.name.slice(0, 40), cat: c.cat, colour: COLOURS[c.colour] ? c.colour : null }));
+  return { version: 1, days, foods };
 }
 
 const UI = {
@@ -272,6 +437,38 @@ function bestStreak() {
     prev = k;
   }
   return best;
+}
+
+/** Plant diversity over a set of days. */
+function plantStats(dates) {
+  const plants = new Set(), colours = new Set();
+  let raw = 0, cooked = 0;
+  for (const k of dates) {
+    for (const [id, v] of Object.entries(Store.data.days[k]?.plants || {})) {
+      plants.add(plantKey(id));
+      const c = foodInfo(id)?.colour;
+      if (c) colours.add(c);
+      if (v === 'raw') raw++;
+      else if (v === 'cooked') cooked++;
+    }
+  }
+  return { plants, colours, raw, cooked };
+}
+
+const lastDays = (end, n) => Array.from({ length: n }, (_, i) => addDays(end, -i));
+
+function colourDots(set) {
+  return Object.entries(COLOURS).map(([k, c]) =>
+    `<i class="cdot${set.has(k) ? ' on' : ''}" style="--dot:${c.hex}" title="${c.label}"></i>`).join('');
+}
+
+function rawCookedHTML(s) {
+  const n = s.raw + s.cooked;
+  if (!n) return '<div class="rc-empty">Tag fruit &amp; veg to see raw vs cooked</div>';
+  const p = Math.round((s.raw / n) * 100);
+  return `
+    <div class="rc-labels"><span>Raw ${p}%</span><span>Cooked ${100 - p}%</span></div>
+    <div class="rc-bar"><span style="width:${p}%"></span></div>`;
 }
 
 /* --------------------------------------------------------------------------
@@ -412,12 +609,46 @@ function renderToday() {
       </div>
     </section>
 
+    <section class="variety card" id="variety">${varietyHTML()}</section>
+
     <ul class="items" id="items">
       ${TRACKER.items.map((it) => itemHTML(it, Store.get(state.date, it.id), state.expanded.has(it.id))).join('')}
     </ul>
 
-    <p class="footnote">Gram weights are practical conversions of Dr. Greger’s serving sizes. Weigh beans, grains and pasta after cooking. Swipe left or right to change the day.</p>
+    <p class="footnote">Open a category to tag what you ate. Gram weights are practical conversions of Dr. Greger’s serving sizes; weigh beans, grains and pasta after cooking. Swipe left or right to change the day.</p>
   `;
+}
+
+function varietyHTML() {
+  const day = plantStats([state.date]);
+  const week = plantStats(lastDays(state.date, 7));
+  const weekPct = Math.min(100, (week.plants.size / WEEK_GOAL) * 100);
+  return `
+    <div class="v-grid">
+      <div class="v-stat"><b>${day.plants.size}</b><span>plants today</span></div>
+      <div class="v-stat">
+        <b>${week.plants.size}<small>/${WEEK_GOAL}</small></b><span>plants · 7 days</span>
+        <i class="mini-bar"><i style="width:${weekPct}%"></i></i>
+      </div>
+      <div class="v-stat"><div class="cdots">${colourDots(day.colours)}</div><span>${day.colours.size} of 6 colours</span></div>
+    </div>
+    <div class="rc">${rawCookedHTML(day)}</div>`;
+}
+
+function chipsHTML(it) {
+  const cookable = it.id in COOK_CATS;
+  return foodsFor(it.id).map((fd) => {
+    const v = Store.getFood(state.date, fd.id);
+    const name = esc(fd.name);
+    if (!v) {
+      const dot = fd.colour ? `<i class="dot" style="--dot:${COLOURS[fd.colour].hex}"></i>` : '';
+      return `<button class="chip" data-action="food" data-food="${esc(fd.id)}" aria-pressed="false">${dot}${name}</button>`;
+    }
+    const cook = cookable
+      ? `<button class="chip-cook" data-action="cook" data-food="${esc(fd.id)}" aria-label="${name}: ${v === 'raw' ? 'raw' : 'cooked'}, tap to switch">${v === 'raw' ? 'raw' : 'cooked'}</button>`
+      : '';
+    return `<span class="chip on${cookable ? ' has-cook' : ''}"><button class="chip-main" data-action="food" data-food="${esc(fd.id)}" aria-pressed="true">${ICONS.check}${name}</button>${cook}</span>`;
+  }).join('');
 }
 
 function itemHTML(it, n, open) {
@@ -425,6 +656,21 @@ function itemHTML(it, n, open) {
     <button class="box${i < n ? ' on' : ''}" data-action="box" data-i="${i}"
       aria-pressed="${i < n}" aria-label="${it.name}: serving ${i + 1} of ${it.target}">${ICONS.check}</button>`).join('');
   const servings = it.servings.map(([label, amount]) => `<li><span>${label}</span><b>${amount}</b></li>`).join('');
+  const hasPicker = it.id in FOODS;
+  const tagged = hasPicker ? foodsFor(it.id).filter((fd) => Store.getFood(state.date, fd.id)) : [];
+  const colourSelect = it.id in COOK_CATS ? `
+    <select name="colour" aria-label="Colour">
+      <option value="">Colour</option>
+      ${Object.entries(COLOURS).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join('')}
+    </select>` : '';
+  const picker = hasPicker ? `
+    <div class="info-title">What did you eat?${it.id in COOK_CATS ? '<span> · tap raw/cooked to switch</span>' : ''}</div>
+    <div class="chips">${chipsHTML(it)}</div>
+    <form class="add-food" data-cat="${it.id}">
+      <input name="name" type="text" placeholder="Add another…" maxlength="40" autocomplete="off" enterkeyhint="done" aria-label="Add a food">
+      ${colourSelect}
+      <button type="submit">Add</button>
+    </form>` : '';
   return `
     <li class="item${n >= it.target ? ' done' : ''}${open ? ' open' : ''}" data-id="${it.id}" style="--c:${it.color}">
       <button class="item-head" data-action="info" aria-expanded="${open}" aria-controls="info-${it.id}">
@@ -434,12 +680,22 @@ function itemHTML(it, n, open) {
         <span class="chev">${ICONS.down}</span>
       </button>
       <div class="boxes" role="group" aria-label="${it.name} servings">${boxes}</div>
+      ${tagged.length ? `<div class="tagged">${tagged.map((fd) => esc(fd.name)).join(' · ')}</div>` : ''}
       <div class="info" id="info-${it.id}"${open ? '' : ' hidden'}>
+        ${picker}
         <div class="info-title">One serving</div>
         <ul class="servings">${servings}</ul>
-        <p class="examples">${it.examples}</p>
+        ${hasPicker ? '' : `<p class="examples">${it.examples}</p>`}
       </div>
     </li>`;
+}
+
+/** Re-render one item card (keeps open state) and the variety card. */
+function refreshItem(li, it) {
+  const fresh = document.createElement('template');
+  fresh.innerHTML = itemHTML(it, Store.get(state.date, it.id), state.expanded.has(it.id)).trim();
+  li.replaceWith(fresh.content.firstElementChild);
+  $('#variety').innerHTML = varietyHTML();
 }
 
 function updateItem(li, it) {
@@ -541,11 +797,32 @@ function renderHistory() {
       </div>
     </section>
 
+    ${diversityHTML(today)}
+
     <section class="card">
       <h2 class="card-title">Last 7 days by category</h2>
       ${week.length ? `<ul class="bars">${bars}</ul>` : '<p class="muted">Nothing logged yet. Your progress will show up here.</p>'}
     </section>
   `;
+}
+
+function diversityHTML(today) {
+  const s = plantStats(lastDays(today, 7));
+  const pct = Math.min(100, (s.plants.size / WEEK_GOAL) * 100);
+  const names = [...s.plants].map(plantName).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  const colours = Object.entries(COLOURS).map(([k, c]) =>
+    `<span class="cpill${s.colours.has(k) ? ' on' : ''}"><i class="cdot${s.colours.has(k) ? ' on' : ''}" style="--dot:${c.hex}"></i>${c.label}</span>`).join('');
+  return `
+    <section class="card diversity">
+      <h2 class="card-title">Plant diversity · last 7 days</h2>
+      <div class="pd-count"><b>${s.plants.size}</b><span>different plants · goal ${WEEK_GOAL}</span></div>
+      <div class="pd-bar${s.plants.size >= WEEK_GOAL ? ' full' : ''}"><span style="width:${pct}%"></span></div>
+      <div class="pd-sub">${s.colours.size} of 6 colours</div>
+      <div class="cpills">${colours}</div>
+      <div class="rc">${rawCookedHTML(s)}</div>
+      ${names.length ? `<div class="pd-list">${names.map((n) => `<span>${esc(n)}</span>`).join('')}</div>`
+        : '<p class="muted">Tag foods inside each category on the Today tab to fill this in.</p>'}
+    </section>`;
 }
 
 /* ---- Settings ---- */
@@ -563,6 +840,20 @@ function renderSettings() {
       <label class="row-btn" for="import-input">${ICONS.upload}<span>Import backup</span></label>
       <input type="file" id="import-input" class="visually-hidden" accept="application/json,.json">
     </section>
+
+    ${customFoods().length ? `
+    <section class="card group">
+      <h2 class="card-title">My foods</h2>
+      <p class="muted">Foods you added. Removing one keeps it in your history.</p>
+      <ul class="my-foods">
+        ${customFoods().map((c) => `
+          <li>
+            ${c.colour ? `<i class="dot" style="--dot:${COLOURS[c.colour].hex}"></i>` : ''}
+            <span>${esc(c.name)}<small>${TRACKER.items.find((it) => it.id === c.cat)?.name || ''}</small></span>
+            <button class="icon-btn small" data-action="remove-food" data-food="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">${ICONS.close}</button>
+          </li>`).join('')}
+      </ul>
+    </section>` : ''}
 
     <section class="card group">
       <h2 class="card-title">Danger zone</h2>
@@ -662,6 +953,30 @@ document.addEventListener('click', (e) => {
       $('.info', li).hidden = !open;
       break;
     }
+    case 'food':
+    case 'cook': {
+      const li = el.closest('.item');
+      const it = TRACKER.items.find((x) => x.id === li.dataset.id);
+      const id = el.dataset.food;
+      const cur = Store.getFood(state.date, id);
+      let next;
+      if (el.dataset.action === 'cook') next = cur === 'raw' ? 'cooked' : 'raw';
+      else if (cur) next = null;
+      else if (it.id in COOK_CATS) next = foodInfo(id)?.cook || COOK_CATS[it.id];
+      else next = 1;
+      Store.setFood(state.date, id, next);
+      haptic();
+      refreshItem(li, it);
+      break;
+    }
+    case 'remove-food': {
+      const fd = foodInfo(el.dataset.food);
+      if (fd && confirm(`Remove “${fd.name}” from your foods?`)) {
+        Store.removeCustomFood(fd.id);
+        render();
+      }
+      break;
+    }
     case 'prev-day': setDate(addDays(state.date, -1), -1); break;
     case 'next-day': setDate(addDays(state.date, 1), 1); break;
     case 'go-today': setDate(todayKey(), 1); break;
@@ -684,7 +999,7 @@ document.addEventListener('click', (e) => {
     case 'export': exportBackup(); break;
     case 'erase':
       if (confirm('Erase ALL tracked data on this phone? This cannot be undone.')) {
-        Store.replace({ version: 1, days: {} });
+        Store.replace({ version: 1, days: {}, foods: [] });
         toast('All data erased');
         render();
       }
@@ -700,6 +1015,23 @@ document.addEventListener('change', (e) => {
     e.target.value = '';
     if (file) importBackup(file);
   }
+});
+
+// Add a custom food from the picker (and tick it for the current day).
+document.addEventListener('submit', (e) => {
+  const form = e.target.closest('.add-food');
+  if (!form) return;
+  e.preventDefault();
+  const cat = form.dataset.cat;
+  const name = form.elements.name.value.trim().replace(/\s+/g, ' ').slice(0, 40);
+  if (!name) return;
+  const it = TRACKER.items.find((x) => x.id === cat);
+  let fd = foodsFor(cat).find((x) => x.name.toLowerCase() === name.toLowerCase());
+  if (!fd) fd = Store.addCustomFood(name, cat, form.elements.colour?.value || '');
+  if (!Store.getFood(state.date, fd.id)) Store.setFood(state.date, fd.id, cat in COOK_CATS ? COOK_CATS[cat] : 1);
+  document.activeElement?.blur();
+  haptic();
+  refreshItem(form.closest('.item'), it);
 });
 
 // Swipe left/right on the Today view to change day.
