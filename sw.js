@@ -2,7 +2,9 @@
 
 // Offline support. Network-first so updates pushed to GitHub Pages show up
 // immediately; falls back to the cached copy when offline.
-const CACHE = 'dailytracker-v4';
+// Change CACHE on every release: a changed sw.js is what makes the installed
+// Home Screen app notice the update and reload itself.
+const CACHE = 'dailytracker-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -16,7 +18,7 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
@@ -31,7 +33,9 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   event.respondWith(
-    fetch(req)
+    // Fetch by URL (a navigation Request can't take options) and always revalidate,
+    // skipping GitHub Pages' 10 minute browser cache.
+    fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();

@@ -4,7 +4,7 @@
    Daily Tracker — pure HTML/CSS/JS, data in localStorage.
    ========================================================================== */
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 const STORAGE_KEY = 'dailytracker.v1';
 const UI_KEY = 'dailytracker.ui';
 const LOCALE = 'en-GB';
@@ -1188,6 +1188,22 @@ render();
 
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
+// Updates: the Home Screen app is only resumed, never reloaded, by iOS. So every time
+// it comes to the front we ask for a new sw.js; when a new version takes over, reload.
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return; // first install: nothing to refresh
+    reloading = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    let lastCheck = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden || Date.now() - lastCheck < 30000) return;
+      lastCheck = Date.now();
+      reg.update().catch(() => {});
+    });
+  }).catch(() => {});
 }
