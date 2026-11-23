@@ -4,7 +4,7 @@
    Daily Tracker — pure HTML/CSS/JS, data in localStorage.
    ========================================================================== */
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.3.0';
 const STORAGE_KEY = 'dailytracker.v1';
 const UI_KEY = 'dailytracker.ui';
 const LOCALE = 'en-GB';
@@ -139,6 +139,18 @@ const TOTAL = TRACKER.items.reduce((s, it) => s + it.target, 0);
    -------------------------------------------------------------------------- */
 
 const WEEK_GOAL = 30;
+
+/* Simple yes/no habits, shown in the top card.
+   monthly: show how many days this month. perMonth: the goal is once a month.
+   food: the habit is the same as ticking that food in the picker. */
+const HABITS = [
+  { id: 'vitamins', name: 'Vitamins', emoji: '💊', color: '#e8930c' },
+  { id: 'smoothie', name: 'Green smoothie', emoji: '🥤', color: '#30a46c', monthly: true },
+  { id: 'brazil', name: 'Brazil nuts', emoji: '🌰', color: '#8a6248', perMonth: true, food: 'brazil-nuts' },
+];
+
+function habitDone(h, k) { return h.food ? !!Store.getFood(k, h.food) : Store.getHabit(k, h.id); }
+function setHabitDone(h, k, on) { if (h.food) Store.setFood(k, h.food, on ? 1 : null); else Store.setHabit(k, h.id, on); }
 
 const COLOURS = {
   red: { label: 'Red', hex: '#e5484d' },
@@ -327,6 +339,22 @@ const Store = {
     this.save();
   },
 
+  getHabit(date, id) { return !!this.data.days[date]?.habits?.[id]; },
+
+  setHabit(date, id, on) {
+    const days = this.data.days;
+    if (on) {
+      days[date] ??= {};
+      days[date].habits ??= {};
+      days[date].habits[id] = 1;
+    } else if (days[date]?.habits) {
+      delete days[date].habits[id];
+      if (!Object.keys(days[date].habits).length) delete days[date].habits;
+      if (!Object.keys(days[date]).length) delete days[date];
+    }
+    this.save();
+  },
+
   getFood(date, id) { return this.data.days[date]?.plants?.[id] ?? null; },
 
   /** value: 'raw' | 'cooked' | 1, or null to untick. */
@@ -453,6 +481,23 @@ function plantStats(dates) {
     }
   }
   return { plants, colours, raw, cooked };
+}
+
+/** Days in the month of `k` (up to today) on which a habit was done, and how many days have passed. */
+function habitMonth(k, h) {
+  const [y, m] = k.split('-').map(Number);
+  const month = k.slice(0, 7);
+  const today = todayKey();
+  const last = today.slice(0, 7) === month ? Number(today.slice(8)) : new Date(y, m, 0).getDate();
+  const dates = [];
+  for (let d = 1; d <= last; d++) if (habitDone(h, `${month}-${pad(d)}`)) dates.push(d);
+  return { done: dates.length, days: month > today.slice(0, 7) ? 0 : last, dates };
+}
+
+/** "5 Nov" or "5 & 20 Nov" */
+function monthDates(k, dates) {
+  const mon = fmt(k, { month: 'short' });
+  return `${dates.length > 1 ? `${dates.slice(0, -1).join(', ')} & ${dates.at(-1)}` : dates[0]} ${mon}`;
 }
 
 const lastDays = (end, n) => Array.from({ length: n }, (_, i) => addDays(end, -i));
@@ -593,6 +638,7 @@ function renderToday() {
     ${tip}
 
     <section class="summary card${done >= TOTAL ? ' complete' : ''}" id="summary">
+      <div class="summary-main">
       <div class="ring">
         <svg viewBox="0 0 120 120" aria-hidden="true">
           <circle class="ring-track" cx="60" cy="60" r="${RING_R}"/>
@@ -607,6 +653,8 @@ function renderToday() {
         <div class="summary-msg" id="sum-msg">${summaryMessage(done)}</div>
         ${isToday ? '' : '<button class="pill" data-action="go-today">Back to today</button>'}
       </div>
+      </div>
+      <div class="habits" id="habits">${habitsHTML()}</div>
     </section>
 
     <section class="variety card" id="variety">${varietyHTML()}</section>
@@ -617,6 +665,28 @@ function renderToday() {
 
     <p class="footnote">Open a category to tag what you ate. Gram weights are practical conversions of Dr. Greger’s serving sizes; weigh beans, grains and pasta after cooking. Swipe left or right to change the day.</p>
   `;
+}
+
+function habitsHTML() {
+  const thisMonth = state.date.slice(0, 7) === todayKey().slice(0, 7);
+  return HABITS.map((h) => {
+    let on = habitDone(h, state.date);
+    const pressed = on;
+    let sub = on ? 'Done' : 'Not yet';
+    if (h.monthly) {
+      const { done } = habitMonth(state.date, h);
+      sub = `${done} day${done === 1 ? '' : 's'} ${thisMonth ? 'this month' : `in ${fmt(state.date, { month: 'long' })}`}`;
+    } else if (h.perMonth) {
+      const { dates } = habitMonth(state.date, h);
+      on = dates.length > 0; // the monthly goal is met
+      sub = on ? `Eaten ${monthDates(state.date, dates)}` : `Not yet ${thisMonth ? 'this month' : `in ${fmt(state.date, { month: 'long' })}`}`;
+    }
+    return `
+      <button class="habit${on ? ' on' : ''}" data-action="habit" data-habit="${h.id}" aria-pressed="${pressed}" style="--c:${h.color}">
+        <span class="habit-check">${on ? ICONS.check : `<span class="habit-emoji">${h.emoji}</span>`}</span>
+        <span class="habit-text"><b>${h.name}</b><small>${sub}</small></span>
+      </button>`;
+  }).join('');
 }
 
 function varietyHTML() {
@@ -797,6 +867,29 @@ function renderHistory() {
       </div>
     </section>
 
+    <section class="card">
+      <h2 class="card-title">${first.toLocaleDateString(LOCALE, { month: 'long' })} habits</h2>
+      <ul class="bars">${HABITS.map((h) => {
+        const { done, days, dates } = habitMonth(`${month}-01`, h);
+        if (h.perMonth) {
+          return `
+          <li style="--c:${h.color}">
+            <span class="bar-emoji" aria-hidden="true">${h.emoji}</span>
+            <span class="bar-name">${h.name} · once a month</span>
+            <span class="bar-track"><span class="bar-fill" style="width:${done ? 100 : 0}%"></span></span>
+            <span class="bar-pct">${done ? monthDates(`${month}-01`, dates) : '–'}</span>
+          </li>`;
+        }
+        return `
+          <li style="--c:${h.color}">
+            <span class="bar-emoji" aria-hidden="true">${h.emoji}</span>
+            <span class="bar-name">${h.name}</span>
+            <span class="bar-track"><span class="bar-fill" style="width:${days ? (done / days) * 100 : 0}%"></span></span>
+            <span class="bar-pct">${done}/${days}</span>
+          </li>`;
+      }).join('')}</ul>
+    </section>
+
     ${diversityHTML(today)}
 
     <section class="card">
@@ -967,6 +1060,20 @@ document.addEventListener('click', (e) => {
       Store.setFood(state.date, id, next);
       haptic();
       refreshItem(li, it);
+      if (HABITS.some((h) => h.food === id)) $('#habits').innerHTML = habitsHTML();
+      break;
+    }
+    case 'habit': {
+      const h = HABITS.find((x) => x.id === el.dataset.habit);
+      const on = !habitDone(h, state.date);
+      setHabitDone(h, state.date, on);
+      haptic();
+      $('#habits').innerHTML = habitsHTML();
+      if (h.food) {
+        const li = $(`.item[data-id="${TRACKER.items.find((it) => foodsFor(it.id).some((fd) => fd.id === h.food))?.id}"]`);
+        if (li) refreshItem(li, TRACKER.items.find((it) => it.id === li.dataset.id));
+      }
+      if (on) $(`[data-habit="${h.id}"]`).classList.add('pop');
       break;
     }
     case 'remove-food': {

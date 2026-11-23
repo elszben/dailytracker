@@ -2,7 +2,7 @@
 
 // Offline support. Network-first so updates pushed to GitHub Pages show up
 // immediately; falls back to the cached copy when offline.
-const CACHE = 'dailytracker-v2';
+const CACHE = 'dailytracker-v4';
 const ASSETS = [
   './',
   './index.html',
